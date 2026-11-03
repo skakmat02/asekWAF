@@ -1,0 +1,26 @@
+.env
+.env.production
+node_modules/
+*.log
+*.tmp
+backup/
+*.pem
+*.key
+*.crt
+
+# Runtime state (berisi konfigurasi lokal; backup sendiri bila perlu)
+deploy/modsec/openwaf-state.json
+deploy/modsec/modsecurity-override.conf
+deploy/nginx/default-upstream.conf
+deploy/nginx/sites.conf
+deploy/nginx/rate-limit-zone.conf
+deploy/nginx/rate-limit-location.conf
+deploy/nginx/error-pages.conf
+deploy/nginx/error-pages/
+
+# File yang di-generate saat mode dev lokal
+test/fixtures/crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf
+test/fixtures/crs/rules/REQUEST-905-OPENWAF-CUSTOM.conf
+
+# Log container lokal (bukan fixture)
+deploy/logs/

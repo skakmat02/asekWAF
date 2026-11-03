@@ -1,0 +1,173 @@
+name: asekwaf
+
+# AsekWAF: ModSecurity v3 + OWASP CRS (Nginx) dengan panel manajemen web.
+#
+# Port:
+#   8080  -> WAF / reverse proxy (HTTP)
+#   8443  -> WAF / reverse proxy (HTTPS, sertifikat self-signed bawaan image)
+#   8081  -> panel manajemen (sengaja hanya bind ke 127.0.0.1)
+#
+# Untuk produksi: pin image ke tag stabil, set password yang kuat, dan
+# tempatkan panel di belakang TLS / VPN.
+
+services:
+  bootstrap:
+    image: ${CRS_IMAGE:-owasp/modsecurity-crs:nginx}
+    container_name: asekwaf-bootstrap
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        if [ ! -f /crs/crs-setup.conf ]; then
+          echo "[asekwaf] Menyiapkan volume CRS dari image..."
+          cp -a /opt/owasp-crs/. /crs/
+        else
+          echo "[asekwaf] Volume CRS sudah ada, mempertahankan konfigurasi."
+        fi
+        touch /crs/rules/REQUEST-905-OPENWAF-CUSTOM.conf
+        touch /crs/rules/REQUEST-904-OPENWAF-BASELINE.conf
+        touch /crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf
+        touch /crs/rules/openwaf-community-blocklist.txt
+        mkdir -p /logs
+        chown -R nginx:nginx /crs /logs
+        chmod -R u+rwX,g+rwX /crs /logs
+        echo "[asekwaf] Bootstrap selesai."
+    volumes:
+      - crsdata:/crs
+      - auditlogs:/logs
+    restart: "no"
+    security_opt: ["no-new-privileges:true"]
+
+  waf:
+    image: ${CRS_IMAGE:-owasp/modsecurity-crs:nginx}
+    container_name: asekwaf-waf
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    environment:
+      # ModSecurity engine. Nilai ini dapat diubah dari GUI (file override).
+      MODSEC_RULE_ENGINE: "On"
+      MODSEC_AUDIT_ENGINE: "RelevantOnly"
+      MODSEC_AUDIT_LOG: /var/log/modsecurity/audit.log
+      MODSEC_AUDIT_LOG_FORMAT: "JSON"
+      MODSEC_AUDIT_LOG_PARTS: "ABIJDEFHZ"
+      MODSEC_AUDIT_LOG_TYPE: "Serial"
+      MODSEC_AUDIT_STORAGE_DIR: /var/log/modsecurity/audit/
+      MODSEC_RESP_BODY_MIMETYPE: "text/plain text/html text/xml application/json"
+
+      # AsekWAF mengelola crs-setup.conf sendiri (paranoia, threshold, dll).
+      MANUAL_MODE: "1"
+      CRS_DISABLE_PLUGINS: "1"
+
+      # Reverse proxy default (dapat diubah dari GUI).
+      BACKEND: "http://127.0.0.1:18080"
+      PORT: "8080"
+      SSL_PORT: "8443"
+      SERVER_NAME: "localhost"
+      PROXY_TIMEOUT: "60s"
+      REAL_IP_HEADER: ${OPENWAF_REAL_IP_HEADER:-X-Forwarded-For}
+      SET_REAL_IP_FROM: ${OPENWAF_TRUSTED_PROXY:-127.0.0.1}
+      REAL_IP_RECURSIVE: ${OPENWAF_REAL_IP_RECURSIVE:-on}
+    # Host networking membuat listener Nginx yang dibuat dari panel langsung
+    # tersedia pada IP server, tanpa harus mendeklarasikan rentang port Docker.
+    network_mode: host
+    volumes:
+      - crsdata:/opt/owasp-crs
+      - auditlogs:/var/log/modsecurity
+      - ./deploy/nginx/default.conf.template:/etc/nginx/templates/conf.d/default.conf.template:ro
+      - ./deploy/nginx/default-upstream.conf:/etc/nginx/openwaf-default.conf:ro
+      - ./deploy/nginx/sites.conf:/etc/nginx/conf.d/zz-openwaf-sites.conf:ro
+      - ./deploy/nginx/rate-limit-zone.conf:/etc/nginx/conf.d/00-openwaf-ratelimit.conf:ro
+      - ./deploy/nginx/rate-limit-location.conf:/etc/nginx/openwaf-ratelimit.conf:ro
+      - ./deploy/nginx/location_common.conf:/etc/asekwaf-location-common.conf:ro
+      - ./deploy/nginx:/etc/openwaf-generated:ro
+      - ./deploy/modsec/modsecurity-override.conf:/etc/nginx/templates/modsecurity.d/modsecurity-override.conf.template:ro
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
+
+  docker-proxy:
+    image: ${DOCKER_SOCKET_PROXY_IMAGE:-ghcr.io/tecnativa/docker-socket-proxy:v0.5.0}
+    container_name: asekwaf-docker-proxy
+    environment:
+      CONTAINERS: "1"
+      EXEC: "1"
+      POST: "1"
+      VERSION: "1"
+      LOG_LEVEL: warning
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    read_only: true
+    tmpfs: ["/run", "/tmp"]
+    security_opt: ["no-new-privileges:true"]
+    networks: [control]
+    logging: { driver: json-file, options: { max-size: "5m", max-file: "3" } }
+
+  manager:
+    build:
+      context: ./manager
+    image: asekwaf-manager:1.0.0
+    container_name: asekwaf-manager
+    # Samakan dengan pemilik checkout agar file konfigurasi bind-mount dapat
+    # ditulis juga pada Docker rootless. Ubah lewat .env bila UID/GID berbeda.
+    user: "${OPENWAF_MANAGER_UID:-1000}:${OPENWAF_MANAGER_GID:-1000}"
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+      docker-proxy:
+        condition: service_started
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      OPENWAF_PRODUCTION: ${OPENWAF_PRODUCTION:-false}
+      MANAGER_PORT: "8081"
+      OPENWAF_ADMIN_PASSWORD: ${OPENWAF_ADMIN_PASSWORD:-admin}
+      OPENWAF_SESSION_SECRET: ${OPENWAF_SESSION_SECRET:-}
+      OPENWAF_COOKIE_SECURE: ${OPENWAF_COOKIE_SECURE:-false}
+      OPENWAF_CONFIG_DIR: /app/data/modsec
+      OPENWAF_NGINX_DIR: /app/data/nginx
+      CRS_DIR: /app/data/crs
+      WAF_CRS_DIR: /opt/owasp-crs
+      AUDIT_LOG: /app/data/logs/audit.log
+      WAF_URL: http://host.docker.internal:8080
+      WAF_CONTAINER: asekwaf-waf
+      DOCKER_HOST: http://docker-proxy:2375
+    ports:
+      - "127.0.0.1:8081:8081"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./deploy/modsec:/app/data/modsec
+      - ./deploy/nginx:/app/data/nginx
+      - crsdata:/app/data/crs
+      - auditlogs:/app/data/logs
+    restart: unless-stopped
+    init: true
+    # Volume CRS/audit dimiliki nginx (UID/GID 101); group ini memberi manager
+    # hak tulis tanpa membuka volume untuk semua user di host.
+    group_add: ["101"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=64m"]
+    pids_limit: 200
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
+    networks: [control, egress]
+
+  # Backend contoh. Ganti dengan aplikasi Anda, atau atur upstream lewat GUI.
+  demo:
+    image: traefik/whoami:v1.10
+    container_name: asekwaf-demo
+    ports:
+      - "127.0.0.1:18080:80"
+    restart: unless-stopped
+    profiles: ["demo"]
+
+networks:
+  control:
+    internal: true
+  egress: {}
+
+volumes:
+  crsdata:
+  auditlogs:
