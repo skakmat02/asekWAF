@@ -1394,7 +1394,7 @@ route('POST', '/api/proxy/diagnostics', async (req, res) => {
   const { settings } = await loadRawSettings();
   const checks = [];
   const targets = [
-    ...(state.reverseProxy.fallbackMode === 'return404' ? [] : [{ name: 'Upstream default', host: '' }]),
+    ...(state.reverseProxy.fallbackMode === 'offline' ? [] : [{ name: 'Upstream default', host: '' }]),
     ...state.reverseProxy.sites
       .filter((site) => site.enabled)
       .slice(0, 20)
@@ -1425,7 +1425,7 @@ route('POST', '/api/proxy/diagnostics', async (req, res) => {
 
 route('PUT', '/api/proxy/default', async (req, res) => {
   const body = await readJson(req);
-  const mode = body.mode === 'return404' ? 'return404' : 'forward';
+  const mode = body.mode === 'forward' ? 'forward' : 'offline';
   const current = (await loadState()).reverseProxy.defaultUpstream;
   const upstream = validateUpstream(body.upstream || current);
   const preserveHost = body.preserveHost !== false;

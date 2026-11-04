@@ -69,7 +69,13 @@ function html(value) {
 }
 
 export function renderErrorPagesConfig(state) {
-  if (state.errorPages?.enabled === false) return `${HEADER}# Custom error pages dinonaktifkan.\n`;
+  if (state.errorPages?.enabled === false) return `${HEADER}# Custom status pages are disabled; the offline fallback remains available.
+location ^~ /__openwaf_error/ {
+    internal;
+    alias /etc/openwaf-generated/error-pages/;
+    add_header Cache-Control "no-store" always;
+}
+`;
   const codes = [400, 403, 404, 429, 500, 502, 503, 504];
   return `${HEADER}${codes.map((code) => `error_page ${code} /__openwaf_error/${code}.html;`).join('\n')}
 
@@ -88,6 +94,26 @@ export function renderErrorPage(state, code) {
   const language = ['en', 'id', 'zh', 'ar', 'ja'].includes(cfg.language) ? cfg.language : 'en';
   const direction = language === 'ar' ? 'rtl' : 'ltr';
   return `<!doctype html><html lang="${language}" dir="${direction}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${code} · ${html(page.title)}</title><style>:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 20%,#10233b 0,#070d18 55%);color:#e9f1fc;font-family:Inter,Segoe UI,system-ui,sans-serif}.card{width:min(560px,100%);padding:42px;border:1px solid #1d2f4a;border-radius:20px;background:rgba(14,26,44,.94);box-shadow:0 28px 70px -35px #000}.brand{font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${accent}}.code{margin:26px 0 4px;font-size:clamp(64px,15vw,112px);font-weight:800;line-height:.9;letter-spacing:-.06em;color:${accent}}h1{margin:20px 0 10px;font-size:28px}p{margin:0;color:#9bb0ca;line-height:1.7}.support{margin-top:24px;padding-top:20px;border-top:1px solid #1d2f4a;font-size:13px}@media(max-width:520px){.card{padding:28px}.code{font-size:72px}h1{font-size:23px}}</style></head><body><main class="card"><div class="brand">${html(cfg.brand || 'AsekWAF')}</div><div class="code">${code}</div><h1>${html(page.title)}</h1><p>${html(page.message)}</p><p class="support">${html(cfg.supportText || '')}</p></main></body></html>\n`;
+}
+
+export function renderOfflinePage(state) {
+  const cfg = state.errorPages || {};
+  const language = ['en', 'id', 'zh', 'ar', 'ja'].includes(cfg.language) ? cfg.language : 'en';
+  const copy = {
+    en: ['Website Offline', 'This website has been temporarily disabled by the administrator.'],
+    id: ['Situs Sedang Offline', 'Situs ini sedang dinonaktifkan sementara oleh administrator.'],
+    zh: ['网站已下线', '该网站已被管理员暂时停用。'],
+    ar: ['الموقع غير متصل', 'تم تعطيل هذا الموقع مؤقتًا بواسطة المسؤول.'],
+    ja: ['ウェブサイトはオフラインです', 'このウェブサイトは管理者により一時的に無効化されています。'],
+  }[language];
+  const offlineState = {
+    ...state,
+    errorPages: {
+      ...cfg,
+      pages: { ...cfg.pages, 503: { title: copy[0], message: copy[1] } },
+    },
+  };
+  return renderErrorPage(offlineState, 503);
 }
 
 export function renderZzz(state) {
@@ -200,6 +226,7 @@ export async function writeGeneratedFiles(state) {
     ...errorCodes.map((code) =>
       writeTextAtomic(path.join(ERROR_PAGES_DIR, `${code}.html`), renderErrorPage(state, code))
     ),
+    writeTextAtomic(path.join(ERROR_PAGES_DIR, 'offline.html'), renderOfflinePage(state)),
   ]);
 }
 
@@ -285,8 +312,14 @@ function tlsUpstream(verifyTls) {
 
 export function renderDefaultUpstream(state) {
   const rp = state.reverseProxy || {};
-  if (rp.fallbackMode === 'return404') {
-    return `# AsekWAF - generated default fallback\n# Host yang tidak cocok ditolak dan tidak diteruskan ke backend.\nreturn 404;\n`;
+  if (rp.fallbackMode !== 'forward') {
+    return `# AsekWAF - generated Website Offline fallback
+# Unmatched hosts are handled locally and never forwarded to an upstream.
+error_page 503 /__openwaf_error/offline.html;
+add_header Cache-Control "no-store" always;
+add_header Retry-After "300" always;
+return 503;
+`;
   }
   const upstream = parseUpstream(rp.defaultUpstream || 'http://127.0.0.1:80') || {
     protocol: 'http:',
@@ -317,9 +350,9 @@ export function renderSites(state) {
 
   let count = 0;
   for (const site of sites) {
-    if (!site.enabled || !site.hosts?.length) continue;
-    const upstream = parseUpstream(site.upstream);
-    if (!upstream) continue;
+    if (!site.hosts?.length) continue;
+    const upstream = site.enabled ? parseUpstream(site.upstream) : null;
+    if (site.enabled && !upstream) continue;
     const varName = `openwaf_up_${String(site.id).replace(/[^a-zA-Z0-9_]/g, '_')}`;
     const catchAll = site.hosts.includes('*');
     const hosts = site.hosts.filter((host) => host !== '*' && /^[a-z0-9.*-]+$/.test(host)).join(' ');
@@ -342,6 +375,24 @@ export function renderSites(state) {
       parts.push('    ssl_session_tickets off;');
     }
     parts.push('    client_max_body_size 0;');
+    if (!site.enabled) {
+      parts.push('    modsecurity off;');
+      parts.push('    add_header Cache-Control "no-store" always;');
+      parts.push('    add_header Retry-After "300" always;');
+      parts.push('    error_page 503 /__asekwaf_offline.html;');
+      parts.push('');
+      parts.push('    location = /__asekwaf_offline.html {');
+      parts.push('        internal;');
+      parts.push('        alias /etc/openwaf-generated/error-pages/offline.html;');
+      parts.push('    }');
+      parts.push('');
+      parts.push('    location / {');
+      parts.push('        return 503;');
+      parts.push('    }');
+      parts.push('}');
+      parts.push('');
+      continue;
+    }
     if (site.wafEnabled) {
       parts.push('    modsecurity on;');
       parts.push('    # Proteksi memakai konfigurasi CRS global /etc/modsecurity.d/setup.conf');

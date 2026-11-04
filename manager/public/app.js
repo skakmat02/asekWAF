@@ -94,17 +94,21 @@ Object.assign(I18N.id, { lastChecked: 'Terakhir diperiksa', cachedResult: 'hasil
 Object.assign(I18N.zh, { lastChecked: '上次检查', cachedResult: '已保存结果', checkFailedCached: '最新检查失败；正在显示已保存的结果。' });
 Object.assign(I18N.ar, { lastChecked: 'آخر فحص', cachedResult: 'نتيجة محفوظة', checkFailedCached: 'فشل آخر فحص؛ يتم عرض النتيجة المحفوظة.' });
 Object.assign(I18N.ja, { lastChecked: '最終確認', cachedResult: '保存済み結果', checkFailedCached: '最新の確認に失敗したため、保存済みの結果を表示しています。' });
-Object.assign(I18N.en, { fallbackBehavior: 'Unmatched request behavior', return404: 'Return 404 (recommended)', forwardDefault: 'Forward to default upstream', fallback404Hint: 'Unknown hosts are rejected locally and are never sent to a backend.', fallbackForwardHint: 'Unknown hosts are forwarded to the URL below.' });
-Object.assign(I18N.id, { fallbackBehavior: 'Perilaku request yang tidak cocok', return404: 'Kembalikan 404 (disarankan)', forwardDefault: 'Teruskan ke upstream default', fallback404Hint: 'Host yang tidak dikenal ditolak secara lokal dan tidak dikirim ke backend.', fallbackForwardHint: 'Host yang tidak dikenal diteruskan ke URL di bawah.' });
-Object.assign(I18N.zh, { fallbackBehavior: '未匹配请求的处理方式', return404: '返回 404（推荐）', forwardDefault: '转发到默认上游', fallback404Hint: '未知主机将在本地被拒绝，不会发送到后端。', fallbackForwardHint: '未知主机将被转发到以下 URL。' });
-Object.assign(I18N.ar, { fallbackBehavior: 'سلوك الطلبات غير المتطابقة', return404: 'إرجاع 404 (موصى به)', forwardDefault: 'إعادة التوجيه إلى الخادم الافتراضي', fallback404Hint: 'يتم رفض المضيفين غير المعروفين محليًا ولا يتم إرسالهم إلى الخلفية.', fallbackForwardHint: 'يتم توجيه المضيفين غير المعروفين إلى العنوان أدناه.' });
-Object.assign(I18N.ja, { fallbackBehavior: '一致しないリクエストの動作', return404: '404 を返す（推奨）', forwardDefault: 'デフォルトアップストリームへ転送', fallback404Hint: '不明なホストはローカルで拒否され、バックエンドへ送信されません。', fallbackForwardHint: '不明なホストは以下の URL へ転送されます。' });
-
-Object.assign(I18N.en, { copied:'Copied to clipboard.',copyFailed:'Copy failed. Please copy it manually.',genericError:'An error occurred.',validationFailed:'Configuration validation failed',changesCancelled:'Changes were cancelled. Output from nginx -t / ModSecurity:',saving:'Saving…',pageLoadFailed:'Failed to load the page.',timelineEmpty:'No timeline data yet.',requiredPattern:'Pattern is required.',requiredIp:'IP address is required.',requiredHostname:'At least one hostname is required.',requiredUpstream:'Upstream is required.',customDeleted:'Custom rule deleted.',customCreated:'Custom rule created.',customUpdated:'Custom rule updated.',exclusionDeleted:'Exclusion deleted.',exclusionCreated:'Exclusion created.',exclusionUpdated:'Exclusion updated.',ipAdded:'IP entry added.',ipDeleted:'IP entry deleted.',siteDeleted:'Virtual host deleted.',siteCreated:'Site created.',siteUpdated:'Site updated.',fallbackApplied:'HTTP 404 fallback applied.',upstreamSaved:'Default upstream saved.',settingsReloaded:'Settings saved and WAF reloaded.',settingsReloadSkipped:'Settings saved; WAF reload was skipped.',rateApplied:'Rate limit saved and applied.',rateReloadSkipped:'Rate limit saved; reload was skipped.',threatSaved:'Threat-intelligence configuration saved.',retentionSaved:'Audit-log retention policy saved.',reloadUnavailable:'WAF reload skipped (Docker is unavailable).'});
-Object.assign(I18N.id, { copied:'Disalin ke clipboard.',copyFailed:'Gagal menyalin. Silakan salin manual.',genericError:'Terjadi kesalahan.',validationFailed:'Validasi konfigurasi gagal',changesCancelled:'Perubahan dibatalkan. Output dari nginx -t / ModSecurity:',saving:'Menyimpan…',pageLoadFailed:'Gagal memuat halaman.',timelineEmpty:'Belum ada data timeline.',requiredPattern:'Pattern wajib diisi.',requiredIp:'Alamat IP wajib diisi.',requiredHostname:'Minimal satu hostname wajib diisi.',requiredUpstream:'Upstream wajib diisi.',customDeleted:'Custom rule dihapus.',customCreated:'Custom rule dibuat.',customUpdated:'Custom rule diperbarui.',exclusionDeleted:'Exclusion dihapus.',exclusionCreated:'Exclusion dibuat.',exclusionUpdated:'Exclusion diperbarui.',ipAdded:'Entri IP ditambahkan.',ipDeleted:'Entri IP dihapus.',siteDeleted:'Virtual host dihapus.',siteCreated:'Situs dibuat.',siteUpdated:'Situs diperbarui.',fallbackApplied:'Fallback HTTP 404 diterapkan.',upstreamSaved:'Upstream default disimpan.',settingsReloaded:'Pengaturan disimpan dan WAF di-reload.',settingsReloadSkipped:'Pengaturan disimpan; reload WAF dilewati.',rateApplied:'Rate limit disimpan dan diterapkan.',rateReloadSkipped:'Rate limit disimpan; reload dilewati.',threatSaved:'Konfigurasi threat intelligence disimpan.',retentionSaved:'Kebijakan retensi audit log disimpan.',reloadUnavailable:'Reload WAF dilewati (Docker tidak tersedia).'});
+Object.assign(I18N.en, { fallbackBehavior: 'Unmatched request behavior', offlineFallback: 'Show Website Offline page (recommended)', forwardDefault: 'Forward to default upstream', fallbackOfflineHint: 'Unknown hosts receive the local Website Offline page with HTTP 503 and are never sent to a backend.', fallbackForwardHint: 'Unknown hosts are forwarded to the URL below.' });
+Object.assign(I18N.id, { fallbackBehavior: 'Perilaku request yang tidak cocok', offlineFallback: 'Tampilkan halaman Website Offline (disarankan)', forwardDefault: 'Teruskan ke upstream default', fallbackOfflineHint: 'Host yang tidak dikenal menerima halaman Website Offline lokal dengan HTTP 503 dan tidak dikirim ke backend.', fallbackForwardHint: 'Host yang tidak dikenal diteruskan ke URL di bawah.' });
+Object.assign(I18N.zh, { fallbackBehavior: '未匹配请求的处理方式', offlineFallback: '显示网站离线页面（推荐）', forwardDefault: '转发到默认上游', fallbackOfflineHint: '未知主机将收到本地网站离线页面和 HTTP 503，且不会发送到后端。', fallbackForwardHint: '未知主机将被转发到以下 URL。' });
+Object.assign(I18N.ar, { fallbackBehavior: 'سلوك الطلبات غير المتطابقة', offlineFallback: 'عرض صفحة الموقع غير المتصل (موصى به)', forwardDefault: 'إعادة التوجيه إلى الخادم الافتراضي', fallbackOfflineHint: 'تتلقى المضيفات غير المعروفة صفحة الموقع غير المتصل المحلية مع HTTP 503 ولا تُرسل إلى الخلفية.', fallbackForwardHint: 'يتم توجيه المضيفين غير المعروفين إلى العنوان أدناه.' });
+Object.assign(I18N.ja, { fallbackBehavior: '一致しないリクエストの動作', offlineFallback: 'ウェブサイトオフラインページを表示（推奨）', forwardDefault: 'デフォルトアップストリームへ転送', fallbackOfflineHint: '不明なホストにはローカルのオフラインページと HTTP 503 を返し、バックエンドへ転送しません。', fallbackForwardHint: '不明なホストは以下の URL へ転送されます。' });
+Object.assign(I18N.en, { copied:'Copied to clipboard.',copyFailed:'Copy failed. Please copy it manually.',genericError:'An error occurred.',validationFailed:'Configuration validation failed',changesCancelled:'Changes were cancelled. Output from nginx -t / ModSecurity:',saving:'Saving…',pageLoadFailed:'Failed to load the page.',timelineEmpty:'No timeline data yet.',requiredPattern:'Pattern is required.',requiredIp:'IP address is required.',requiredHostname:'At least one hostname is required.',requiredUpstream:'Upstream is required.',customDeleted:'Custom rule deleted.',customCreated:'Custom rule created.',customUpdated:'Custom rule updated.',exclusionDeleted:'Exclusion deleted.',exclusionCreated:'Exclusion created.',exclusionUpdated:'Exclusion updated.',ipAdded:'IP entry added.',ipDeleted:'IP entry deleted.',siteDeleted:'Virtual host deleted.',siteCreated:'Site created.',siteUpdated:'Site updated.',fallbackApplied:'Website Offline fallback applied.',upstreamSaved:'Default upstream saved.',settingsReloaded:'Settings saved and WAF reloaded.',settingsReloadSkipped:'Settings saved; WAF reload was skipped.',rateApplied:'Rate limit saved and applied.',rateReloadSkipped:'Rate limit saved; reload was skipped.',threatSaved:'Threat-intelligence configuration saved.',retentionSaved:'Audit-log retention policy saved.',reloadUnavailable:'WAF reload skipped (Docker is unavailable).'});
+Object.assign(I18N.id, { copied:'Disalin ke clipboard.',copyFailed:'Gagal menyalin. Silakan salin manual.',genericError:'Terjadi kesalahan.',validationFailed:'Validasi konfigurasi gagal',changesCancelled:'Perubahan dibatalkan. Output dari nginx -t / ModSecurity:',saving:'Menyimpan…',pageLoadFailed:'Gagal memuat halaman.',timelineEmpty:'Belum ada data timeline.',requiredPattern:'Pattern wajib diisi.',requiredIp:'Alamat IP wajib diisi.',requiredHostname:'Minimal satu hostname wajib diisi.',requiredUpstream:'Upstream wajib diisi.',customDeleted:'Custom rule dihapus.',customCreated:'Custom rule dibuat.',customUpdated:'Custom rule diperbarui.',exclusionDeleted:'Exclusion dihapus.',exclusionCreated:'Exclusion dibuat.',exclusionUpdated:'Exclusion diperbarui.',ipAdded:'Entri IP ditambahkan.',ipDeleted:'Entri IP dihapus.',siteDeleted:'Virtual host dihapus.',siteCreated:'Situs dibuat.',siteUpdated:'Situs diperbarui.',fallbackApplied:'Fallback Website Offline diterapkan.',upstreamSaved:'Upstream default disimpan.',settingsReloaded:'Pengaturan disimpan dan WAF di-reload.',settingsReloadSkipped:'Pengaturan disimpan; reload WAF dilewati.',rateApplied:'Rate limit disimpan dan diterapkan.',rateReloadSkipped:'Rate limit disimpan; reload dilewati.',threatSaved:'Konfigurasi threat intelligence disimpan.',retentionSaved:'Kebijakan retensi audit log disimpan.',reloadUnavailable:'Reload WAF dilewati (Docker tidak tersedia).'});
 Object.assign(I18N.zh, { copied:'已复制到剪贴板。',copyFailed:'复制失败，请手动复制。',genericError:'发生错误。',validationFailed:'配置验证失败',changesCancelled:'更改已取消。nginx -t / ModSecurity 输出：',saving:'保存中…',pageLoadFailed:'页面加载失败。',timelineEmpty:'暂无时间线数据。',requiredPattern:'必须填写模式。',requiredIp:'必须填写 IP 地址。',requiredHostname:'至少需要一个主机名。',requiredUpstream:'必须填写上游地址。'});
 Object.assign(I18N.ar, { copied:'تم النسخ إلى الحافظة.',copyFailed:'فشل النسخ. يرجى النسخ يدويًا.',genericError:'حدث خطأ.',validationFailed:'فشل التحقق من التكوين',changesCancelled:'أُلغيت التغييرات. مخرجات nginx -t / ModSecurity:',saving:'جارٍ الحفظ…',pageLoadFailed:'فشل تحميل الصفحة.',timelineEmpty:'لا توجد بيانات للمخطط الزمني بعد.',requiredPattern:'النمط مطلوب.',requiredIp:'عنوان IP مطلوب.',requiredHostname:'يلزم اسم مضيف واحد على الأقل.',requiredUpstream:'عنوان الخادم الخلفي مطلوب.'});
 Object.assign(I18N.ja, { copied:'クリップボードにコピーしました。',copyFailed:'コピーできませんでした。手動でコピーしてください。',genericError:'エラーが発生しました。',validationFailed:'設定の検証に失敗しました',changesCancelled:'変更を取り消しました。nginx -t / ModSecurity の出力：',saving:'保存中…',pageLoadFailed:'ページを読み込めませんでした。',timelineEmpty:'タイムラインデータはまだありません。',requiredPattern:'パターンは必須です。',requiredIp:'IP アドレスは必須です。',requiredHostname:'ホスト名を1つ以上指定してください。',requiredUpstream:'アップストリームは必須です。'});
+Object.assign(I18N.en, { fallbackApplied: 'Website Offline fallback applied.' });
+Object.assign(I18N.id, { fallbackApplied: 'Fallback Website Offline diterapkan.' });
+Object.assign(I18N.zh, { fallbackApplied: '已启用网站离线后备页面。' });
+Object.assign(I18N.ar, { fallbackApplied: 'تم تطبيق صفحة الموقع غير المتصل الاحتياطية.' });
+Object.assign(I18N.ja, { fallbackApplied: 'ウェブサイトオフラインのフォールバックを適用しました。' });
 Object.assign(I18N.en, { chartTotal:'Total', chartEvents:'events', chartAria:'Hourly security events chart' });
 Object.assign(I18N.id, { chartTotal:'Total', chartEvents:'event', chartAria:'Grafik event keamanan per jam' });
 Object.assign(I18N.zh, { chartTotal:'总计', chartEvents:'事件', chartAria:'每小时安全事件图表' });
@@ -2397,15 +2401,15 @@ async function renderProxy() {
       <div class="card">
         <div class="card-head">
           <div><h3>Upstream default</h3><div class="sub">Untuk request yang tidak cocok dengan situs mana pun</div></div>
-          <span class="badge ${data.fallbackMode === 'return404' ? 'ok' : 'info'}">${data.fallbackMode === 'return404' ? 'HTTP 404' : esc(data.defaultUpstream)}</span>
+          <span class="badge ${data.fallbackMode === 'offline' ? 'ok' : 'info'}">${data.fallbackMode === 'offline' ? 'HTTP 503' : esc(data.defaultUpstream)}</span>
         </div>
         <div class="card-body">
           <form id="defaultUpstreamForm" class="form-grid">
             <div class="field">
               <label for="fallbackMode">${t('fallbackBehavior')}</label>
               <select id="fallbackMode">
-                <option value="return404" ${data.fallbackMode === 'return404' ? 'selected' : ''}>${t('return404')}</option>
-                <option value="forward" ${data.fallbackMode !== 'return404' ? 'selected' : ''}>${t('forwardDefault')}</option>
+                <option value="offline" ${data.fallbackMode === 'offline' ? 'selected' : ''}>${t('offlineFallback')}</option>
+                <option value="forward" ${data.fallbackMode === 'forward' ? 'selected' : ''}>${t('forwardDefault')}</option>
               </select>
               <span class="hint" id="fallbackHint"></span>
             </div>
@@ -2432,8 +2436,8 @@ async function renderProxy() {
           <div class="status-panel">
             <div class="status-item"><span class="label">Port HTTP</span><span class="value mono">8080</span></div>
             <div class="status-item"><span class="label">Port HTTPS</span><span class="value mono">8443</span></div>
-            <div class="status-item"><span class="label">Fallback</span><span class="value">${data.fallbackMode === 'return404' ? t('return404') : t('forwardDefault')}</span></div>
-            <div class="status-item"><span class="label">Default upstream</span><span class="value mono">${data.fallbackMode === 'return404' ? '—' : esc(data.defaultUpstream)}</span></div>
+            <div class="status-item"><span class="label">Fallback</span><span class="value">${data.fallbackMode === 'offline' ? t('offlineFallback') : t('forwardDefault')}</span></div>
+            <div class="status-item"><span class="label">Default upstream</span><span class="value mono">${data.fallbackMode === 'offline' ? '—' : esc(data.defaultUpstream)}</span></div>
             <div class="status-item"><span class="label">Virtual host</span><span class="value">${sites.length} (${sites.filter((s) => s.enabled).length} aktif)</span></div>
             <div class="status-item"><span class="label">ModSecurity engine</span><span class="value">${esc(data.wafEngine)}</span></div>
             <div class="status-item"><span class="label">${t('protectedSites')}</span><span class="value">${data.wafProtectedSites} ${t('of')} ${sites.filter((s) => s.enabled).length} ${t('sites')}</span></div>
@@ -2469,7 +2473,7 @@ async function renderProxy() {
                         <td class="mono small">${esc(site.upstream)}
                           <div class="cell-sub">${site.websocket ? 'WebSocket aktif' : 'tanpa WebSocket'}${site.verifyTls ? ' · verifikasi TLS' : ''}</div>
                         </td>
-                        <td><span class="badge ${site.wafEnabled && data.wafEngine !== 'Off' ? (data.wafEngine === 'On' ? 'ok' : 'warning') : 'disabled'}">${!site.wafEnabled ? t('disabledOption') : data.wafEngine === 'Off' ? 'Engine Off' : data.wafEngine}</span></td>
+                        <td><span class="badge ${!site.enabled ? 'offline' : site.wafEnabled && data.wafEngine !== 'Off' ? (data.wafEngine === 'On' ? 'ok' : 'warning') : 'disabled'}">${!site.enabled ? 'Offline · HTTP 503' : !site.wafEnabled ? t('disabledOption') : data.wafEngine === 'Off' ? 'Engine Off' : data.wafEngine}</span></td>
                         <td style="text-align:center">
                           <label class="switch"><input type="checkbox" data-site-toggle="${site.id}" ${site.enabled ? 'checked' : ''} />
                             <span class="track"></span></label>
@@ -2501,7 +2505,7 @@ async function renderProxy() {
     const forwarding = fallbackMode.value === 'forward';
     document.getElementById('defaultUpstreamField').hidden = !forwarding;
     document.getElementById('defaultPreserveHostRow').hidden = !forwarding;
-    document.getElementById('fallbackHint').textContent = t(forwarding ? 'fallbackForwardHint' : 'fallback404Hint');
+    document.getElementById('fallbackHint').textContent = t(forwarding ? 'fallbackForwardHint' : 'fallbackOfflineHint');
   };
   fallbackMode.addEventListener('change', syncFallbackMode);
   syncFallbackMode();
@@ -2536,7 +2540,7 @@ async function renderProxy() {
         method: 'PUT',
         body: { mode: fallbackMode.value, upstream, preserveHost: document.getElementById('defaultPreserveHost').checked },
       });
-      toast(t(fallbackMode.value === 'return404' ? 'fallbackApplied' : 'upstreamSaved'), 'ok');
+      toast(t(fallbackMode.value === 'offline' ? 'fallbackApplied' : 'upstreamSaved'), 'ok');
       refreshChrome();
       await renderProxy();
     } catch (err) {

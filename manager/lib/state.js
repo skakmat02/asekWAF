@@ -9,7 +9,7 @@ const EMPTY_STATE = {
   ipAllowlist: [],
   ipBlocklist: [],
   reverseProxy: {
-    fallbackMode: 'return404',
+    fallbackMode: 'offline',
     defaultUpstream: 'http://127.0.0.1:18080',
     defaultPreserveHost: true,
     sites: [],
@@ -148,7 +148,7 @@ export function normalizeState(input) {
     : rawDefaultUpstream;
   const seen = new Set();
   state.reverseProxy = {
-    fallbackMode: rp.fallbackMode === 'return404' ? 'return404' : 'forward',
+    fallbackMode: rp.fallbackMode === 'forward' ? 'forward' : 'offline',
     defaultUpstream,
     defaultPreserveHost: rp.defaultPreserveHost !== false,
     sites: (rp.sites || [])

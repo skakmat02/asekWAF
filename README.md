@@ -18,6 +18,7 @@ security rules, exclusions, IP lists, and audit logs from a browser.
 - Managed CVE virtual-patch feeds synchronized from selected HTTPS URLs.
 - IP allowlist/blocklist, community threat intelligence, and rate limiting.
 - Reverse proxy by hostname or dynamic public port, including wildcard hosts.
+- Disabled reverse-proxy sites remain addressable and return a localized Website Offline page with HTTP 503.
 - WebSocket support, upstream TLS verification, per-site HTTPS certificates, and per-site WAF control.
 - Test Console for sending requests through the actual WAF path.
 - Custom 400/403/404/429/500/502/503/504 response pages.
@@ -87,14 +88,14 @@ curl -fsS http://127.0.0.1:8081/healthz
 curl -kfsS https://127.0.0.1:8443/healthz
 ```
 
-New installations return HTTP 404 for unmatched hosts. Add a site in Reverse Proxy or
+New installations show a local Website Offline page with HTTP 503 for unmatched hosts. Add a site in Reverse Proxy or
 select **Forward to default upstream** when fallback routing is required.
 
 ## Reverse proxy
 
 ### Unmatched requests
 
-- **Return 404 (recommended)** rejects unknown hosts locally.
+- **Show Website Offline (recommended)** returns a local HTTP 503 page and never forwards unknown hosts.
 - **Forward to default upstream** sends unknown hosts to a configured backend.
 
 Upstream URLs contain only a scheme, host, and optional port:
