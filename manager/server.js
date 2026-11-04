@@ -1,4 +1,5 @@
 import http from 'node:http';
+import https from 'node:https';
 import { createReadStream } from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -1769,31 +1770,71 @@ route('POST', '/api/test', async (req, res) => {
     }
   }
 
+  const state = await loadState();
+  const hostMatches = (pattern, hostname) => {
+    if (pattern === '*') return true;
+    if (pattern.startsWith('*.')) {
+      const suffix = pattern.slice(1);
+      return hostname.endsWith(suffix) && hostname.length > suffix.length;
+    }
+    return pattern === hostname;
+  };
+  const selectedSite = body.siteId
+    ? state.reverseProxy.sites.find((site) => site.id === String(body.siteId)) || null
+    : null;
+  const matchedSite = selectedSite || (testHost
+    ? state.reverseProxy.sites
+        .map((site) => ({
+          site,
+          rank: Math.max(0, ...(site.hosts || []).map((host) => {
+            const pattern = String(host).toLowerCase();
+            if (!hostMatches(pattern, testHost)) return 0;
+            return pattern === testHost ? 3 : pattern === '*' ? 1 : 2;
+          })),
+        }))
+        .filter((candidate) => candidate.rank > 0)
+        .sort((a, b) => b.rank - a.rank)[0]?.site || null
+    : null);
+  if (selectedSite && !(selectedSite.hosts || []).some((host) => hostMatches(String(host).toLowerCase(), testHost))) {
+    throw new HttpError(400, 'Hostname does not match the selected reverse-proxy site');
+  }
+  const wafTarget = new URL(WAF_URL);
+  if (matchedSite) {
+    wafTarget.protocol = matchedSite.tls?.enabled === true ? 'https:' : 'http:';
+    wafTarget.port = String(matchedSite.listenPort || 8080);
+  }
+  const wafRequestUrl = new URL(target, wafTarget);
+
   const start = Date.now();
   let response = null;
   let error = null;
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
-    const proxied = await fetch(`${WAF_URL}${target}`, {
-      method,
-      headers,
-      body: ['GET', 'HEAD'].includes(method) ? undefined : String(body.body || ''),
-      redirect: 'manual',
-      signal: controller.signal,
+    const requestBody = ['GET', 'HEAD'].includes(method) ? '' : String(body.body || '');
+    const transport = wafRequestUrl.protocol === 'https:' ? https : http;
+    response = await new Promise((resolve, reject) => {
+      const request = transport.request(wafRequestUrl, {
+        method,
+        headers,
+        servername: testHost || undefined,
+        rejectUnauthorized: false,
+        timeout: 12000,
+      }, (proxied) => {
+        const chunks = [];
+        proxied.on('data', (chunk) => chunks.push(chunk));
+        proxied.on('end', () => resolve({
+          status: proxied.statusCode || 0,
+          statusText: proxied.statusMessage || '',
+          headers: Object.fromEntries(Object.entries(proxied.headers).map(([key, value]) => [key, Array.isArray(value) ? value.join(', ') : String(value || '')])),
+          body: truncate(Buffer.concat(chunks).toString('utf8'), 8000),
+        }));
+      });
+      request.on('timeout', () => request.destroy(new Error('Request timeout (12s)')));
+      request.on('error', reject);
+      if (requestBody) request.write(requestBody);
+      request.end();
     });
-    clearTimeout(timeout);
-    const text = await proxied.text();
-    const responseHeaders = {};
-    for (const [key, value] of proxied.headers.entries()) responseHeaders[key] = value;
-    response = {
-      status: proxied.status,
-      statusText: proxied.statusText,
-      headers: responseHeaders,
-      body: truncate(text, 8000),
-    };
   } catch (err) {
-    error = err.name === 'AbortError' ? 'Request timeout (12s)' : err.message;
+    error = err.message;
   }
   const duration = Date.now() - start;
 
@@ -1817,7 +1858,15 @@ route('POST', '/api/test', async (req, res) => {
     error,
     marker,
     durationMs: duration,
-    request: { method, path: target, host: testHost || null, headers, body: truncate(body.body || '', 4000) },
+    request: {
+      method,
+      path: target,
+      host: testHost || null,
+      listener: `${wafTarget.protocol}//${wafTarget.hostname}:${wafTarget.port || (wafTarget.protocol === 'https:' ? '443' : '80')}`,
+      site: matchedSite ? { id: matchedSite.id, name: matchedSite.name, enabled: matchedSite.enabled !== false } : null,
+      headers,
+      body: truncate(body.body || '', 4000),
+    },
     response,
     audit: event
       ? {

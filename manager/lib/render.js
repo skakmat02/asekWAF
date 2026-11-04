@@ -73,6 +73,7 @@ export function renderErrorPagesConfig(state) {
 location ^~ /__openwaf_error/ {
     internal;
     alias /etc/openwaf-generated/error-pages/;
+    ssi on;
     add_header Cache-Control "no-store" always;
 }
 `;
@@ -82,6 +83,7 @@ location ^~ /__openwaf_error/ {
 location ^~ /__openwaf_error/ {
     internal;
     alias /etc/openwaf-generated/error-pages/;
+    ssi on;
     add_header Cache-Control "no-store" always;
 }
 `;
@@ -93,7 +95,8 @@ export function renderErrorPage(state, code) {
   const accent = /^#[0-9a-f]{6}$/i.test(cfg.accent || '') ? cfg.accent : '#2dd4bf';
   const language = ['en', 'id', 'zh', 'ar', 'ja'].includes(cfg.language) ? cfg.language : 'en';
   const direction = language === 'ar' ? 'rtl' : 'ltr';
-  return `<!doctype html><html lang="${language}" dir="${direction}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${code} · ${html(page.title)}</title><style>:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 20%,#10233b 0,#070d18 55%);color:#e9f1fc;font-family:Inter,Segoe UI,system-ui,sans-serif}.card{width:min(560px,100%);padding:42px;border:1px solid #1d2f4a;border-radius:20px;background:rgba(14,26,44,.94);box-shadow:0 28px 70px -35px #000}.brand{font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${accent}}.code{margin:26px 0 4px;font-size:clamp(64px,15vw,112px);font-weight:800;line-height:.9;letter-spacing:-.06em;color:${accent}}h1{margin:20px 0 10px;font-size:28px}p{margin:0;color:#9bb0ca;line-height:1.7}.support{margin-top:24px;padding-top:20px;border-top:1px solid #1d2f4a;font-size:13px}@media(max-width:520px){.card{padding:28px}.code{font-size:72px}h1{font-size:23px}}</style></head><body><main class="card"><div class="brand">${html(cfg.brand || 'AsekWAF')}</div><div class="code">${code}</div><h1>${html(page.title)}</h1><p>${html(page.message)}</p><p class="support">${html(cfg.supportText || '')}</p></main></body></html>\n`;
+  const referenceLabel = { en: 'Reference ID', id: 'ID Referensi', zh: '参考 ID', ar: 'المعرّف المرجعي', ja: '参照 ID' }[language];
+  return `<!doctype html><html lang="${language}" dir="${direction}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${code} · ${html(page.title)}</title><style>:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 50% 20%,#10233b 0,#070d18 55%);color:#e9f1fc;font-family:Inter,Segoe UI,system-ui,sans-serif}.card{width:min(560px,100%);padding:42px;border:1px solid #1d2f4a;border-radius:20px;background:rgba(14,26,44,.94);box-shadow:0 28px 70px -35px #000}.brand{font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:${accent}}.code{margin:26px 0 4px;font-size:clamp(64px,15vw,112px);font-weight:800;line-height:.9;letter-spacing:-.06em;color:${accent}}h1{margin:20px 0 10px;font-size:28px}p{margin:0;color:#9bb0ca;line-height:1.7}.reference{display:flex;align-items:baseline;gap:8px;margin-top:16px;color:#7186a1;font-size:10px;line-height:1.5;letter-spacing:.06em;text-transform:uppercase}.reference code{color:#a9bad0;font:500 11px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.01em;text-transform:none;overflow-wrap:anywhere;user-select:all}.support{margin-top:20px;padding-top:20px;border-top:1px solid #1d2f4a;font-size:13px}@media(max-width:520px){.card{padding:28px}.code{font-size:72px}h1{font-size:23px}.reference{align-items:flex-start;flex-direction:column;gap:3px}}</style></head><body><main class="card"><div class="brand">${html(cfg.brand || 'AsekWAF')}</div><div class="code">${code}</div><h1>${html(page.title)}</h1><p>${html(page.message)}</p><div class="reference"><span>${referenceLabel}</span><code><!--# echo var="request_id" encoding="none" --></code></div><p class="support">${html(cfg.supportText || '')}</p></main></body></html>\n`;
 }
 
 export function renderOfflinePage(state) {
@@ -365,6 +368,7 @@ export function renderSites(state) {
     const tlsEnabled = site.tls?.enabled === true;
     parts.push(`    listen ${listenPort}${tlsEnabled ? ' ssl' : ''}${catchAll && listenPort !== 8080 ? ' default_server' : ''};`);
     parts.push(`    server_name ${catchAll ? (listenPort === 8080 ? '~^.*$' : '_') : hosts};`);
+    parts.push('    modsecurity_transaction_id $request_id;');
     if (tlsEnabled) {
       const certBase = `/etc/openwaf-generated/certificates/${site.id}`;
       parts.push(`    ssl_certificate ${certBase}.crt;`);
@@ -384,6 +388,7 @@ export function renderSites(state) {
       parts.push('    location = /__asekwaf_offline.html {');
       parts.push('        internal;');
       parts.push('        alias /etc/openwaf-generated/error-pages/offline.html;');
+      parts.push('        ssi on;');
       parts.push('    }');
       parts.push('');
       parts.push('    location / {');

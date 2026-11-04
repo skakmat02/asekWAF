@@ -450,6 +450,8 @@ export class AuditStore {
       if (action === 'allowed' && (event.blocked || event.rules.length > 0)) return false;
       if (query) {
         const haystack = [
+          event.uniqueId,
+          event.uid,
           event.ip,
           event.uri,
           event.method,
