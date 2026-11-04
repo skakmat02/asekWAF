@@ -210,6 +210,24 @@ export function renderRateLimitZone(state) {
 limit_req_zone $binary_remote_addr zone=openwaf_limit:10m rate=${rate}r/m;
 limit_req_status 429;
 limit_req_log_level warn;
+
+# Keep the public origin when a CDN or load balancer forwards traffic to a
+# dynamic listener. A port explicitly present in Host is retained for direct
+# access; otherwise use the canonical port for the public HTTP(S) scheme.
+map $http_host $asekwaf_explicit_host_port {
+    ~:(?<asekwaf_host_port>[0-9]+)$ $asekwaf_host_port;
+    default "";
+}
+map $http_x_forwarded_proto $asekwaf_forwarded_proto {
+    ~*^https$ https;
+    ~*^http$ http;
+    default $scheme;
+}
+map "$asekwaf_explicit_host_port:$asekwaf_forwarded_proto" $asekwaf_forwarded_port {
+    ~^(?<asekwaf_public_host_port>[0-9]+): $asekwaf_public_host_port;
+    ~^:https$ 443;
+    default 80;
+}
 `;
 }
 
@@ -243,8 +261,9 @@ function proxyHeaders(preserveHost, websocket, host, interceptErrors = false) {
     websocket ? 'proxy_set_header Connection $connection_upgrade;' : 'proxy_set_header Connection "";',
     'proxy_set_header X-Real-IP $remote_addr;',
     'proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;',
-    'proxy_set_header X-Forwarded-Port $server_port;',
-    'proxy_set_header X-Forwarded-Proto $scheme;',
+    'proxy_set_header X-Forwarded-Host $http_host;',
+    'proxy_set_header X-Forwarded-Port $asekwaf_forwarded_port;',
+    'proxy_set_header X-Forwarded-Proto $asekwaf_forwarded_proto;',
     'proxy_http_version 1.1;',
     'proxy_buffering off;',
     'proxy_connect_timeout 60s;',
@@ -310,8 +329,18 @@ export function renderSites(state) {
 
     parts.push(`# ${site.name} (${site.id})`);
     parts.push('server {');
-    parts.push(`    listen ${listenPort}${catchAll && listenPort !== 8080 ? ' default_server' : ''};`);
+    const tlsEnabled = site.tls?.enabled === true;
+    parts.push(`    listen ${listenPort}${tlsEnabled ? ' ssl' : ''}${catchAll && listenPort !== 8080 ? ' default_server' : ''};`);
     parts.push(`    server_name ${catchAll ? (listenPort === 8080 ? '~^.*$' : '_') : hosts};`);
+    if (tlsEnabled) {
+      const certBase = `/etc/openwaf-generated/certificates/${site.id}`;
+      parts.push(`    ssl_certificate ${certBase}.crt;`);
+      parts.push(`    ssl_certificate_key ${certBase}.key;`);
+      parts.push('    ssl_protocols TLSv1.2 TLSv1.3;');
+      parts.push('    ssl_session_cache shared:ASEKWAFSSL:10m;');
+      parts.push('    ssl_session_timeout 1d;');
+      parts.push('    ssl_session_tickets off;');
+    }
     parts.push('    client_max_body_size 0;');
     if (site.wafEnabled) {
       parts.push('    modsecurity on;');

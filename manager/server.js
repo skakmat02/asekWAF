@@ -27,6 +27,7 @@ import {
   RATE_LIMIT_ZONE_FILE,
   RATE_LIMIT_LOCATION_FILE,
   ERROR_PAGES_CONF,
+  CERTIFICATES_DIR,
   COMMUNITY_BLOCKLIST_FILE,
   ENGINE_MODES,
   AUDIT_MODES,
@@ -387,6 +388,10 @@ function validateSite(body, state, existing = null) {
   for (const site of state.reverseProxy.sites) {
     if (existing && site.id === existing.id) continue;
     if ((site.listenPort || 8080) !== listenPort) continue;
+    const requestedTls = body.tlsEnabled ?? existing?.tls?.enabled ?? false;
+    if ((site.tls?.enabled === true) !== (requestedTls === true)) {
+      throw new Error(`All sites on port ${listenPort} must use the same HTTP or HTTPS protocol`);
+    }
     const overlap = site.hosts.filter((host) => hosts.includes(host) || host === '*' || hosts.includes('*'));
     if (overlap.length) {
       throw new Error(`Hostname sudah dipakai situs "${site.name}": ${overlap.join(', ')}`);
@@ -401,10 +406,95 @@ function validateSite(body, state, existing = null) {
     preserveHost: (body.preserveHost ?? existing?.preserveHost ?? true) !== false,
     websocket: (body.websocket ?? existing?.websocket ?? true) !== false,
     verifyTls: (body.verifyTls ?? existing?.verifyTls ?? false) === true,
+    tls: existing?.tls || { enabled: false },
     wafEnabled: (body.wafEnabled ?? existing?.wafEnabled ?? true) !== false,
     enabled: (body.enabled ?? existing?.enabled ?? true) !== false,
     note: String(body.note ?? existing?.note ?? '').slice(0, 300),
   };
+}
+
+function certificatePaths(siteId) {
+  if (!/^site_[a-f0-9]{8}$/.test(siteId)) throw new HttpError(400, 'Invalid site ID');
+  return {
+    cert: path.join(CERTIFICATES_DIR, `${siteId}.crt`),
+    key: path.join(CERTIFICATES_DIR, `${siteId}.key`),
+  };
+}
+
+function validateCertificatePair(certificatePem, privateKeyPem) {
+  const certPem = String(certificatePem || '').trim();
+  const keyPem = String(privateKeyPem || '').trim();
+  if (!certPem || !keyPem) throw new HttpError(400, 'Certificate and private key are required');
+  if (Buffer.byteLength(certPem) > 512 * 1024 || Buffer.byteLength(keyPem) > 128 * 1024) {
+    throw new HttpError(413, 'Certificate or private key is too large');
+  }
+  let certificate;
+  let privateKey;
+  try {
+    certificate = new crypto.X509Certificate(certPem);
+  } catch {
+    throw new HttpError(400, 'Invalid X.509 certificate PEM');
+  }
+  try {
+    privateKey = crypto.createPrivateKey(keyPem);
+  } catch {
+    throw new HttpError(400, 'Invalid or encrypted private key PEM');
+  }
+  const certificatePublicKey = certificate.publicKey.export({ type: 'spki', format: 'der' });
+  const privatePublicKey = crypto.createPublicKey(privateKey).export({ type: 'spki', format: 'der' });
+  if (!certificatePublicKey.equals(privatePublicKey)) {
+    throw new HttpError(400, 'The private key does not match the certificate');
+  }
+  const now = Date.now();
+  const validFrom = Date.parse(certificate.validFrom);
+  const validTo = Date.parse(certificate.validTo);
+  if (!Number.isFinite(validFrom) || !Number.isFinite(validTo) || now < validFrom || now > validTo) {
+    throw new HttpError(400, 'The certificate is not currently valid');
+  }
+  return {
+    certPem: `${certPem}\n`,
+    keyPem: `${keyPem}\n`,
+    metadata: {
+      enabled: true,
+      subject: certificate.subject,
+      issuer: certificate.issuer,
+      validFrom: new Date(validFrom).toISOString(),
+      validTo: new Date(validTo).toISOString(),
+      fingerprint256: certificate.fingerprint256,
+    },
+  };
+}
+
+async function applySiteCertificate(siteId, body, existingTls = null) {
+  const paths = certificatePaths(siteId);
+  const files = [paths.cert, paths.key];
+  const snap = await snapshot(files);
+  const tlsRequested = body.tlsEnabled === undefined ? existingTls?.enabled === true : body.tlsEnabled === true;
+  const hasNewPair = Boolean(String(body.certificatePem || '').trim() || String(body.privateKeyPem || '').trim());
+  try {
+    if (!tlsRequested) {
+      for (const file of files) await fsp.unlink(file).catch((err) => { if (err.code !== 'ENOENT') throw err; });
+      return { tls: { enabled: false }, snap };
+    }
+    if (!hasNewPair) {
+      if (existingTls?.enabled !== true || !(await Promise.all(files.map(async (file) => {
+        try { await fsp.access(file); return true; } catch { return false; }
+      }))).every(Boolean)) {
+        throw new HttpError(400, 'Upload or paste a certificate and matching private key');
+      }
+      return { tls: existingTls, snap };
+    }
+    const pair = validateCertificatePair(body.certificatePem, body.privateKeyPem);
+    ensureDir(CERTIFICATES_DIR);
+    await writeTextAtomic(paths.cert, pair.certPem);
+    await writeTextAtomic(paths.key, pair.keyPem, { mode: 0o600 });
+    await fsp.chmod(paths.cert, 0o644);
+    await fsp.chmod(paths.key, 0o600);
+    return { tls: pair.metadata, snap };
+  } catch (err) {
+    await restore(snap);
+    throw err;
+  }
 }
 
 function validateIpValue(value) {
@@ -1351,46 +1441,67 @@ route('PUT', '/api/proxy/default', async (req, res) => {
 
 route('POST', '/api/proxy/sites', async (req, res) => {
   const body = await readJson(req);
+  const siteId = `site_${crypto.randomBytes(4).toString('hex')}`;
+  const certificate = await applySiteCertificate(siteId, body);
   let created = null;
-  const result = await mutateState(async (state) => {
-    const input = validateSite(body, state);
-    const site = {
-      id: `site_${crypto.randomBytes(4).toString('hex')}`,
-      ...input,
-      createdAt: nowIso(),
-    };
-    state.reverseProxy.sites.push(site);
-    created = site;
-    return site.id;
-  });
-  const commit = await commitState(result.state);
-  json(res, 201, { ok: true, item: created, reload: commit.reload });
+  try {
+    const result = await mutateState(async (state) => {
+      const input = validateSite(body, state);
+      const site = { id: siteId, ...input, tls: certificate.tls, createdAt: nowIso() };
+      state.reverseProxy.sites.push(site);
+      created = site;
+      return site.id;
+    });
+    const commit = await commitState(result.state);
+    json(res, 201, { ok: true, item: created, reload: commit.reload });
+  } catch (err) {
+    await restore(certificate.snap);
+    throw err;
+  }
 });
 
 route('PUT', '/api/proxy/sites/:id', async (req, res, { params }) => {
   const body = await readJson(req);
+  const currentState = await loadState();
+  const currentSite = currentState.reverseProxy.sites.find((item) => item.id === params.id);
+  if (!currentSite) throw new HttpError(404, 'Reverse proxy site not found');
+  const certificate = await applySiteCertificate(params.id, body, currentSite.tls);
   let updated = null;
-  const result = await mutateState(async (state) => {
-    const site = state.reverseProxy.sites.find((item) => item.id === params.id);
-    if (!site) throw new HttpError(404, 'Situs reverse proxy tidak ditemukan');
-    Object.assign(site, validateSite(body, state, site));
-    site.updatedAt = nowIso();
-    updated = site;
-    return site.id;
-  });
-  const commit = await commitState(result.state);
-  json(res, 200, { ok: true, item: updated, reload: commit.reload });
+  try {
+    const result = await mutateState(async (state) => {
+      const site = state.reverseProxy.sites.find((item) => item.id === params.id);
+      if (!site) throw new HttpError(404, 'Reverse proxy site not found');
+      Object.assign(site, validateSite(body, state, site), { tls: certificate.tls });
+      site.updatedAt = nowIso();
+      updated = site;
+      return site.id;
+    });
+    const commit = await commitState(result.state);
+    json(res, 200, { ok: true, item: updated, reload: commit.reload });
+  } catch (err) {
+    await restore(certificate.snap);
+    throw err;
+  }
 });
 
 route('DELETE', '/api/proxy/sites/:id', async (req, res, { params }) => {
-  const result = await mutateState(async (state) => {
-    const index = state.reverseProxy.sites.findIndex((item) => item.id === params.id);
-    if (index === -1) throw new HttpError(404, 'Situs reverse proxy tidak ditemukan');
-    state.reverseProxy.sites.splice(index, 1);
-    return params.id;
-  });
-  const commit = await commitState(result.state);
-  json(res, 200, { ok: true, deleted: params.id, reload: commit.reload });
+  const paths = certificatePaths(params.id);
+  const certSnap = await snapshot([paths.cert, paths.key]);
+  try {
+    await fsp.unlink(paths.cert).catch((err) => { if (err.code !== 'ENOENT') throw err; });
+    await fsp.unlink(paths.key).catch((err) => { if (err.code !== 'ENOENT') throw err; });
+    const result = await mutateState(async (state) => {
+      const index = state.reverseProxy.sites.findIndex((item) => item.id === params.id);
+      if (index === -1) throw new HttpError(404, 'Reverse proxy site not found');
+      state.reverseProxy.sites.splice(index, 1);
+      return params.id;
+    });
+    const commit = await commitState(result.state);
+    json(res, 200, { ok: true, deleted: params.id, reload: commit.reload });
+  } catch (err) {
+    await restore(certSnap);
+    throw err;
+  }
 });
 
 route('GET', '/api/settings', async (req, res) => {
@@ -1475,7 +1586,13 @@ route('POST', '/api/cve-rule-feeds/sync', async (req, res) => {
 route('GET', '/api/config/export', async (req, res) => {
   const state = await loadState();
   const { settings } = await loadRawSettings();
-  json(res, 200, { format: 'asekwaf-config', version: 1, exportedAt: nowIso(), reverseProxy: state.reverseProxy, settings, rateLimit: state.rateLimit, threatIntel: { ...state.threatIntel, count: 0, sourceCounts: {}, lastSync: null, lastError: null }, auditRetention: state.auditRetention, errorPages: state.errorPages, cveRuleFeeds: { ...state.cveRuleFeeds, rules: [], lastSync: null, lastError: null } });
+  const reverseProxy = {
+    ...state.reverseProxy,
+    // Private keys are deliberately never exported. Imported sites start as HTTP
+    // until an administrator installs their certificate on the destination host.
+    sites: state.reverseProxy.sites.map((site) => ({ ...site, tls: { enabled: false } })),
+  };
+  json(res, 200, { format: 'asekwaf-config', version: 1, exportedAt: nowIso(), reverseProxy, settings, rateLimit: state.rateLimit, threatIntel: { ...state.threatIntel, count: 0, sourceCounts: {}, lastSync: null, lastError: null }, auditRetention: state.auditRetention, errorPages: state.errorPages, cveRuleFeeds: { ...state.cveRuleFeeds, rules: [], lastSync: null, lastError: null } });
 });
 
 route('POST', '/api/config/import', async (req, res) => {
@@ -1484,6 +1601,9 @@ route('POST', '/api/config/import', async (req, res) => {
   if (body.settings) await saveSettings(body.settings);
   const result = await mutateState(async (state) => {
     for (const key of ['reverseProxy', 'rateLimit', 'threatIntel', 'auditRetention', 'errorPages', 'cveRuleFeeds']) if (body[key] && typeof body[key] === 'object') state[key] = body[key];
+    if (body.reverseProxy?.sites) {
+      state.reverseProxy.sites = state.reverseProxy.sites.map((site) => ({ ...site, tls: { enabled: false } }));
+    }
   });
   const commit = await commitState(result.state);
   json(res, 200, { ok: true, reload: commit.reload });

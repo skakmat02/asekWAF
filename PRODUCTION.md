@@ -40,7 +40,7 @@ or weak, or when secure cookies are disabled.
 ## Known architectural limits
 
 - One administrator credential; no built-in RBAC, SSO, or 2FA.
-- Per-site public certificate lifecycle is external to the current UI.
+- Per-site certificates can be installed from the UI, but renewal remains an operator responsibility.
 - Docker API access is narrowed through a proxy but remains privileged enough to execute
   commands in the WAF container.
 

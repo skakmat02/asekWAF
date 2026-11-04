@@ -817,6 +817,7 @@ async function mountShell() {
             <span class="status-value" id="sideProxy">—</span>
           </div>
         </div>
+        <div class="app-version" id="sideVersion">AsekWAF</div>
       </div>
       </div>
     </aside>
@@ -937,6 +938,8 @@ function updateChrome(data) {
   if (sideCrs) sideCrs.textContent = data.crs.version || '—';
   const sideProxy = document.getElementById('sideProxy');
   if (sideProxy) sideProxy.textContent = `${data.reverseProxy?.enabledSites ?? 0} ${t('sites')}`;
+  const sideVersion = document.getElementById('sideVersion');
+  if (sideVersion) sideVersion.textContent = `AsekWAF v${data.version || '—'}`;
 }
 
 /* =========================================================================
@@ -2440,7 +2443,7 @@ async function renderProxy() {
                           <div class="chip-list" style="margin-top:5px">${site.hosts.map((host) => `<span class="chip">${esc(host)}</span>`).join('')}</div>
                           ${site.note ? `<div class="cell-sub" style="margin-top:4px">${esc(site.note)}</div>` : ''}
                         </td>
-                        <td><span class="badge info mono">:${site.listenPort || 8080}</span></td>
+                        <td><span class="badge info mono">${site.tls?.enabled ? 'https' : 'http'} :${site.listenPort || 8080}</span></td>
                         <td class="mono small">${esc(site.upstream)}
                           <div class="cell-sub">${site.websocket ? 'WebSocket aktif' : 'tanpa WebSocket'}${site.verifyTls ? ' · verifikasi TLS' : ''}</div>
                         </td>
@@ -2604,6 +2607,35 @@ function openSiteModal(site, sites) {
           <span class="hint">Hanya untuk upstream https://.</span></span>
         <span class="switch"><input id="siteVerifyTls" type="checkbox" ${site?.verifyTls === true ? 'checked' : ''} /><span class="track"></span></span>
       </label>
+      <label class="switch-row span-2">
+        <span><span class="switch-label">HTTPS listener</span>
+          <span class="hint">Serve this public port over HTTPS using your own certificate.</span></span>
+        <span class="switch"><input id="siteTlsEnabled" type="checkbox" ${site?.tls?.enabled === true ? 'checked' : ''} /><span class="track"></span></span>
+      </label>
+      <div class="tls-fields span-2" id="siteTlsFields">
+        ${site?.tls?.enabled ? `<div class="note success" style="margin-bottom:12px">${icon('check')}<div>Certificate installed · valid until ${fmtDate(site.tls.validTo)}<br /><span class="mono small">${esc(site.tls.subject || '')}</span></div></div>` : ''}
+        <div class="form-grid cols-2">
+          <div class="field">
+            <label for="siteCertificateFile">Certificate file</label>
+            <input id="siteCertificateFile" type="file" accept=".pem,.crt,.cer,application/x-pem-file" />
+            <span class="hint">PEM certificate or full chain.</span>
+          </div>
+          <div class="field">
+            <label for="sitePrivateKeyFile">Private key file</label>
+            <input id="sitePrivateKeyFile" type="file" accept=".pem,.key,application/x-pem-file" />
+            <span class="hint">Unencrypted matching PEM private key.</span>
+          </div>
+          <div class="field">
+            <label for="siteCertificatePem">Or paste certificate PEM</label>
+            <textarea id="siteCertificatePem" rows="7" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+          </div>
+          <div class="field">
+            <label for="sitePrivateKeyPem">Or paste private key PEM</label>
+            <textarea id="sitePrivateKeyPem" rows="7" spellcheck="false" placeholder="-----BEGIN PRIVATE KEY-----"></textarea>
+          </div>
+        </div>
+        <div class="note">${icon('info')}<div>When editing, leave both inputs empty to keep the installed certificate. Disabling HTTPS removes its stored certificate. This port will accept HTTPS instead of HTTP.</div></div>
+      </div>
       <div class="field span-2">
         <label for="siteNote">${localizedLegacyText('Catatan')}</label>
         <input id="siteNote" type="text" maxlength="300" value="${esc(site?.note || '')}" placeholder="Pemilik aplikasi / tiket" />
@@ -2621,6 +2653,18 @@ function openSiteModal(site, sites) {
       <button class="btn primary" id="saveSite">${site ? t('saveChanges') : localizedLegacyText('Buat situs')}</button>`,
   });
 
+  const tlsToggle = document.getElementById('siteTlsEnabled');
+  const tlsFields = document.getElementById('siteTlsFields');
+  const updateTlsFields = () => { tlsFields.hidden = !tlsToggle.checked; };
+  tlsToggle.addEventListener('change', updateTlsFields);
+  updateTlsFields();
+  for (const [fileId, textId] of [['siteCertificateFile', 'siteCertificatePem'], ['sitePrivateKeyFile', 'sitePrivateKeyPem']]) {
+    document.getElementById(fileId).addEventListener('change', async (event) => {
+      const file = event.currentTarget.files?.[0];
+      if (file) document.getElementById(textId).value = await file.text();
+    });
+  }
+
   document.getElementById('saveSite').addEventListener('click', async (event) => {
     const button = event.currentTarget;
     const body = {
@@ -2632,6 +2676,9 @@ function openSiteModal(site, sites) {
       websocket: document.getElementById('siteWebsocket').checked,
       wafEnabled: document.getElementById('siteWaf').checked,
       verifyTls: document.getElementById('siteVerifyTls').checked,
+      tlsEnabled: document.getElementById('siteTlsEnabled').checked,
+      certificatePem: document.getElementById('siteCertificatePem').value,
+      privateKeyPem: document.getElementById('sitePrivateKeyPem').value,
       enabled: document.getElementById('siteEnabled').checked,
       note: document.getElementById('siteNote').value.trim(),
     };

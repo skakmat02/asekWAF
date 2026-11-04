@@ -17,6 +17,7 @@ deploy/nginx/rate-limit-zone.conf
 deploy/nginx/rate-limit-location.conf
 deploy/nginx/error-pages.conf
 deploy/nginx/error-pages/
+deploy/nginx/certificates/
 
 # File yang di-generate saat mode dev lokal
 test/fixtures/crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf

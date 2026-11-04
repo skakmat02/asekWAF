@@ -24,11 +24,11 @@ export async function readText(file, fallback = '') {
   }
 }
 
-export async function writeTextAtomic(file, content) {
+export async function writeTextAtomic(file, content, options = undefined) {
   const dir = path.dirname(file);
   ensureDir(dir);
   const tmp = path.join(dir, `.${path.basename(file)}.${process.pid}.${Date.now()}.tmp`);
-  await fsp.writeFile(tmp, content, 'utf8');
+  await fsp.writeFile(tmp, content, options ? { encoding: 'utf8', ...options } : 'utf8');
   await fsp.rename(tmp, file);
 }
 

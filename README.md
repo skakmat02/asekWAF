@@ -17,7 +17,7 @@ security rules, exclusions, IP lists, and audit logs from a browser.
 - Managed CVE virtual-patch feeds synchronized from selected HTTPS URLs.
 - IP allowlist/blocklist, community threat intelligence, and rate limiting.
 - Reverse proxy by hostname or dynamic public port, including wildcard hosts.
-- WebSocket support, upstream TLS verification, and per-site WAF control.
+- WebSocket support, upstream TLS verification, per-site HTTPS certificates, and per-site WAF control.
 - Test Console for sending requests through the actual WAF path.
 - Custom 400/403/404/429/500/502/503/504 response pages.
 - Audit-log retention and automatic pruning.
@@ -123,11 +123,25 @@ Ports `1–65535` are supported except reserved ports `8081`, `8443`, and `18080
 Because the WAF uses host networking, open only required ports in the host firewall.
 Every generated listener still passes through ModSecurity when site protection is enabled.
 
-For public HTTPS, terminate TLS at a front load balancer and forward traffic to AsekWAF.
-Port 8443 uses a testing certificate and is not intended as a production certificate.
+Each reverse-proxy site can terminate HTTPS on its configured public port. In the site
+form, enable **HTTPS listener**, then upload or paste a PEM certificate/full chain and
+its matching unencrypted PEM private key. AsekWAF validates the pair and certificate
+dates before reloading Nginx. The selected port serves HTTPS instead of HTTP.
+
+Certificates are stored locally under `deploy/nginx/certificates/`, excluded from Git
+and configuration exports, and removed when HTTPS is disabled or the site is deleted.
+Back them up separately and protect the private keys. Port 8443 still uses the image's
+testing certificate and is not intended as a production certificate.
 
 If AsekWAF is behind a trusted proxy, configure `OPENWAF_TRUSTED_PROXY`. Never use
 `0.0.0.0/0`, because clients could spoof `X-Forwarded-For`.
+
+When a CDN or load balancer accepts public HTTPS on port 443 and forwards it to a
+dynamic AsekWAF listener (for example port 8121), AsekWAF preserves the public origin
+through `X-Forwarded-Host`, `X-Forwarded-Proto`, and `X-Forwarded-Port`. Applications
+therefore generate public URLs without leaking the internal listener port. Configure
+the upstream framework to trust only the actual proxy addresses. For direct access
+with an explicit port in the `Host` header, AsekWAF retains that port.
 
 ## Rules and false positives
 
@@ -300,7 +314,7 @@ Set a persistent `OPENWAF_SESSION_SECRET`.
 ## Security limitations
 
 - One administrator credential; built-in RBAC, SSO, and 2FA are not yet available.
-- Public certificate lifecycle per site is external to the current UI.
+- Certificate renewal is manual; replace the certificate from the site's edit form before expiry.
 - Raw ModSecurity rules are privileged and must be limited to trusted operators.
 - IP allowlisting disables WAF inspection for matching clients.
 - Engine `Off` turns AsekWAF into an unprotected reverse proxy.

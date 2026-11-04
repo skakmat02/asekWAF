@@ -162,6 +162,16 @@ export function normalizeState(input) {
         preserveHost: site.preserveHost !== false,
         websocket: site.websocket !== false,
         verifyTls: site.verifyTls === true,
+        tls: site.tls?.enabled === true
+          ? {
+              enabled: true,
+              subject: String(site.tls.subject || ''),
+              issuer: String(site.tls.issuer || ''),
+              validFrom: String(site.tls.validFrom || ''),
+              validTo: String(site.tls.validTo || ''),
+              fingerprint256: String(site.tls.fingerprint256 || ''),
+            }
+          : { enabled: false },
         wafEnabled: site.wafEnabled !== false,
         enabled: site.enabled !== false,
         note: String(site.note || ''),

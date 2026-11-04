@@ -29,6 +29,7 @@ export const RATE_LIMIT_ZONE_FILE = path.join(NGINX_DIR, 'rate-limit-zone.conf')
 export const RATE_LIMIT_LOCATION_FILE = path.join(NGINX_DIR, 'rate-limit-location.conf');
 export const ERROR_PAGES_CONF = path.join(NGINX_DIR, 'error-pages.conf');
 export const ERROR_PAGES_DIR = path.join(NGINX_DIR, 'error-pages');
+export const CERTIFICATES_DIR = path.join(NGINX_DIR, 'certificates');
 export const COMMUNITY_BLOCKLIST_FILE = path.join(
   CRS_RULES_DIR,
   'openwaf-community-blocklist.txt'
