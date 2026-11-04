@@ -841,8 +841,8 @@ async function mountShell() {
       </nav>
       <div class="sidebar-foot">
         <div class="status-card">
-          <div class="status-line"><span class="dot" id="sideWafDot"></span> WAF
-            <span class="status-value" id="sideWaf">${t('checking')}</span>
+          <div class="status-line"><span class="dot" id="sideWafDot"></span> Engine
+            <span class="status-value" id="sideEngine">${t('checking')}</span>
           </div>
           <div class="status-line">${icon('shield', 'sm')} CRS
             <span class="status-value" id="sideCrs">—</span>
@@ -865,8 +865,6 @@ async function mountShell() {
         </div>
         <div class="topbar-right">
           <div class="topbar-preferences">${preferenceControls()}</div>
-          <span class="badge outline" id="engineBadge">Engine —</span>
-          <span class="badge outline" id="crsBadge">CRS —</span>
           <button class="btn sm" id="reloadBtn" title="${t('validateAndReload')}">
             ${icon('refresh', 'sm')}<span class="btn-label">${t('reload')}</span>
           </button>
@@ -951,22 +949,12 @@ async function refreshChrome() {
 function updateChrome(data) {
   if (!data) return;
   const engine = data.waf.engineMode || '—';
-  const engineBadge = document.getElementById('engineBadge');
-  if (engineBadge) {
-    engineBadge.textContent = `Engine: ${engine}`;
-    engineBadge.className = `badge ${
-      engine === 'On' ? 'ok' : engine === 'DetectionOnly' ? 'warning' : 'offline'
-    }`;
-  }
-  const crsBadge = document.getElementById('crsBadge');
-  if (crsBadge) crsBadge.textContent = `CRS ${data.crs.version || '—'}`;
-
   const online = data.waf.online;
-  const sideWaf = document.getElementById('sideWaf');
+  const sideEngine = document.getElementById('sideEngine');
   const sideDot = document.getElementById('sideWafDot');
-  if (sideWaf) sideWaf.textContent = online ? 'online' : data.waf.dockerAvailable ? 'offline' : 'n/a';
+  if (sideEngine) sideEngine.textContent = online ? engine : data.waf.dockerAvailable ? 'offline' : 'n/a';
   if (sideDot) {
-    sideDot.className = `dot ${online ? 'ok' : data.waf.dockerAvailable ? 'bad' : 'warn'}`;
+    sideDot.className = `dot ${online && engine === 'On' ? 'ok' : online && engine === 'DetectionOnly' ? 'warn' : 'bad'}`;
   }
   const sideCrs = document.getElementById('sideCrs');
   if (sideCrs) sideCrs.textContent = data.crs.version || '—';
@@ -1197,7 +1185,7 @@ function renderAttackMap(data) {
   </div>`).join('');
   return `<div class="geo-card-body">
     <div class="attack-map" role="img" aria-label="${t('attackMap')}">
-      <span class="land land-a"></span><span class="land land-b"></span><span class="land land-c"></span><span class="land land-d"></span>
+      <img class="world-map" src="/world-map.svg?v=ne110m-1" alt="" aria-hidden="true" />
       ${dots}
       ${!dots ? `<div class="map-empty">${esc(data?.error || t('noGeoAttacks'))}</div>` : ''}
     </div>

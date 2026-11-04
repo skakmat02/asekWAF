@@ -1624,18 +1624,19 @@ select option {
   background-size: 12.5% 25%, 12.5% 25%, auto;
 }
 
-.attack-map .land {
+.world-map {
   position: absolute;
-  display: block;
-  background: rgba(73, 103, 137, 0.34);
-  border: 1px solid rgba(125, 160, 197, 0.16);
-  filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.16));
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  opacity: .88;
+  filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.2));
 }
 
-.land-a { left: 7%; top: 18%; width: 25%; height: 37%; border-radius: 55% 40% 48% 28%; transform: rotate(-8deg); }
-.land-b { left: 24%; top: 52%; width: 13%; height: 35%; border-radius: 46% 58% 72% 35%; transform: rotate(12deg); }
-.land-c { left: 45%; top: 17%; width: 39%; height: 35%; border-radius: 46% 56% 35% 48%; transform: rotate(2deg); }
-.land-d { left: 53%; top: 48%; width: 31%; height: 34%; border-radius: 28% 56% 46% 66%; transform: rotate(-5deg); }
+:root[data-theme="light"] .world-map {
+  opacity: .62;
+}
 
 .attack-dot {
   position: absolute;

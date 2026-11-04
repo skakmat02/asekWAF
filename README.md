@@ -11,6 +11,7 @@ security rules, exclusions, IP lists, and audit logs from a browser.
 ## Features
 
 - Responsive AdminLTE dashboard with light, dark, and automatic themes.
+- Attack-origin map using local public-domain Natural Earth country boundaries.
 - ModSecurity audit events, filters, rule details, and quick allow/block actions.
 - OWASP CRS catalog, tuning, exclusions, and automatic release updates.
 - Visual and raw custom-rule editors with `deny`, `pass`, and `allow` actions.
