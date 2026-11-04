@@ -515,7 +515,10 @@ const loadingBlock = () =>
 
 function toast(message, type = 'info', timeout = 4200) {
   const el = document.createElement('div');
-  el.className = `toast ${type}`;
+  // Bootstrap/AdminLTE hides `.toast:not(.show)`. Keep the `show` class on
+  // our lightweight toast so CRUD feedback remains visible on every page.
+  el.className = `toast show ${type}`;
+  el.setAttribute('role', type === 'error' ? 'alert' : 'status');
   const iconName = type === 'ok' ? 'check' : type === 'error' ? 'alert' : 'info';
   el.innerHTML = `${icon(iconName)}<div class="toast-msg">${esc(message)}</div>
     <button class="toast-close" aria-label="${t('close')}">${icon('x', 'sm')}</button>`;
@@ -615,10 +618,41 @@ document.addEventListener('keydown', (event) => {
 
 async function copyText(text) {
   try {
-    await navigator.clipboard.writeText(text);
+    if (window.isSecureContext && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const textarea = document.createElement('textarea');
+      textarea.value = String(text);
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      textarea.style.pointerEvents = 'none';
+      document.body.appendChild(textarea);
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+      const copied = document.execCommand('copy');
+      textarea.remove();
+      if (!copied) throw new Error('Legacy clipboard command was rejected');
+    }
     toast(t('copied'), 'ok');
   } catch {
-    toast(t('copyFailed'), 'error');
+    // Some browsers expose the Clipboard API but reject it because of policy
+    // or permissions. Retry with the selection-based fallback.
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = String(text);
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copied = document.execCommand('copy');
+      textarea.remove();
+      if (!copied) throw new Error('Clipboard unavailable');
+      toast(t('copied'), 'ok');
+    } catch {
+      toast(t('copyFailed'), 'error');
+    }
   }
 }
 

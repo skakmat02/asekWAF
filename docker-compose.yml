@@ -76,6 +76,7 @@ services:
       - crsdata:/opt/owasp-crs
       - auditlogs:/var/log/modsecurity
       - ./deploy/nginx/default.conf.template:/etc/nginx/templates/conf.d/default.conf.template:ro
+      - ./deploy/docker-entrypoint.d/93-asekwaf-real-ip.sh:/docker-entrypoint.d/93-asekwaf-real-ip.sh:ro
       - ./deploy/nginx/default-upstream.conf:/etc/nginx/openwaf-default.conf:ro
       - ./deploy/nginx/sites.conf:/etc/nginx/conf.d/zz-openwaf-sites.conf:ro
       - ./deploy/nginx/rate-limit-zone.conf:/etc/nginx/conf.d/00-openwaf-ratelimit.conf:ro
@@ -134,7 +135,7 @@ services:
       WAF_CONTAINER: asekwaf-waf
       DOCKER_HOST: http://docker-proxy:2375
     ports:
-      - "127.0.0.1:8081:8081"
+      - "8081:8081"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

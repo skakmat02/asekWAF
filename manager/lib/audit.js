@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import readline from 'node:readline';
+import net from 'node:net';
 import { pipeline } from 'node:stream/promises';
 import { hashId, truncate } from './util.js';
 
@@ -34,6 +35,41 @@ function first(...values) {
     if (value !== undefined && value !== null && value !== '') return value;
   }
   return undefined;
+}
+
+function normalizeIp(value) {
+  let text = String(value || '').trim();
+  if (text.startsWith('[') && text.includes(']')) text = text.slice(1, text.indexOf(']'));
+  if (text.startsWith('::ffff:') && net.isIP(text.slice(7)) === 4) text = text.slice(7);
+  return net.isIP(text) ? text : '';
+}
+
+function isLoopback(value) {
+  const ip = normalizeIp(value);
+  return ip === '::1' || ip.startsWith('127.');
+}
+
+// ModSecurity can retain the TCP peer (for example cloudflared on 127.0.0.1)
+// in transaction.client_ip even after Nginx received the original client-IP
+// headers. Only trust those headers when the recorded peer is loopback; a
+// direct remote client must never be able to override its own address.
+function effectiveClientIp(transaction, request, headers) {
+  const peer = normalizeIp(first(
+    transaction.client_ip,
+    transaction.remote_address,
+    request.remote_address,
+    request.client_ip
+  ));
+  if (!isLoopback(peer)) return peer;
+
+  const cloudflare = normalizeIp(headers['cf-connecting-ip']);
+  if (cloudflare) return cloudflare;
+
+  for (const item of String(headers['x-forwarded-for'] || '').split(',')) {
+    const candidate = normalizeIp(item);
+    if (candidate) return candidate;
+  }
+  return peer;
 }
 
 function parseDate(value) {
@@ -138,9 +174,10 @@ function normalizeEvent(obj, fallbackTime) {
   );
   const score = scoreFrom(messages, action);
   const unique = first(transaction.unique_id, transaction.uniqueId, transaction.id, obj.unique_id);
+  const clientIp = effectiveClientIp(transaction, request, headers);
   const uidBase =
     unique ||
-    `${tsMs}-${first(transaction.client_ip, transaction.remote_address, request.remote_address) || 'ip'}-${uri}`;
+    `${tsMs}-${clientIp || 'ip'}-${uri}`;
   const uid = hashId(uidBase);
 
   return {
@@ -148,14 +185,7 @@ function normalizeEvent(obj, fallbackTime) {
     ts: timestamp,
     tsMs,
     rawTs: tsRaw || '',
-    ip: String(
-      first(
-        transaction.client_ip,
-        transaction.remote_address,
-        request.remote_address,
-        request.client_ip
-      ) || ''
-    ),
+    ip: clientIp,
     method: String(first(request.method, transaction.request?.method) || ''),
     uri,
     path: pathname || '/',

@@ -136,6 +136,18 @@ testing certificate and is not intended as a production certificate.
 If AsekWAF is behind a trusted proxy, configure `OPENWAF_TRUSTED_PROXY`. Never use
 `0.0.0.0/0`, because clients could spoof `X-Forwarded-For`.
 
+For Cloudflare Tunnel running on the same host, use:
+
+```env
+OPENWAF_TRUSTED_PROXY=127.0.0.1
+OPENWAF_REAL_IP_HEADER=CF-Connecting-IP
+OPENWAF_REAL_IP_RECURSIVE=off
+```
+
+Recreate the WAF container after changing these values. AsekWAF installs the resulting
+`real_ip` directives globally, so they apply to the default listeners and every dynamic
+reverse-proxy port. Existing audit records are not rewritten.
+
 When a CDN or load balancer accepts public HTTPS on port 443 and forwards it to a
 dynamic AsekWAF listener (for example port 8121), AsekWAF preserves the public origin
 through `X-Forwarded-Host`, `X-Forwarded-Proto`, and `X-Forwarded-Port`. Applications

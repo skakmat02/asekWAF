@@ -1970,8 +1970,11 @@ pre.code {
   max-width: min(420px, calc(100vw - 36px));
 }
 
-.toast {
+.toasts .toast {
   display: flex;
+  opacity: 1;
+  width: 100%;
+  pointer-events: auto;
   gap: 10px;
   align-items: flex-start;
   padding: 12px 14px;
@@ -1994,27 +1997,27 @@ pre.code {
   }
 }
 
-.toast.ok {
+.toasts .toast.ok {
   border-color: rgba(52, 211, 153, 0.3);
 }
 
-.toast.ok .icon {
+.toasts .toast.ok .icon {
   color: var(--ok);
 }
 
-.toast.error {
+.toasts .toast.error {
   border-color: rgba(251, 113, 133, 0.34);
 }
 
-.toast.error .icon {
+.toasts .toast.error .icon {
   color: var(--danger);
 }
 
-.toast.info .icon {
+.toasts .toast.info .icon {
   color: var(--accent-2);
 }
 
-.toast .toast-close {
+.toasts .toast .toast-close {
   margin-left: auto;
   border: 0;
   background: transparent;
