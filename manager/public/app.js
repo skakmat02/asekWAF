@@ -109,6 +109,11 @@ Object.assign(I18N.id, { fallbackApplied: 'Fallback Website Offline diterapkan.'
 Object.assign(I18N.zh, { fallbackApplied: '已启用网站离线后备页面。' });
 Object.assign(I18N.ar, { fallbackApplied: 'تم تطبيق صفحة الموقع غير المتصل الاحتياطية.' });
 Object.assign(I18N.ja, { fallbackApplied: 'ウェブサイトオフラインのフォールバックを適用しました。' });
+Object.assign(I18N.en, { lastHour: 'Last hour', last6Hours: 'Last 6 hours', last24Hours: 'Last 24 hours', last7Days: 'Last 7 days', actionFilter: 'Action filter', timeRange: 'Time range', eventCount: 'events' });
+Object.assign(I18N.id, { lastHour: '1 jam terakhir', last6Hours: '6 jam terakhir', last24Hours: '24 jam terakhir', last7Days: '7 hari terakhir', actionFilter: 'Filter aksi', timeRange: 'Rentang waktu', eventCount: 'event' });
+Object.assign(I18N.zh, { lastHour: '最近 1 小时', last6Hours: '最近 6 小时', last24Hours: '最近 24 小时', last7Days: '最近 7 天', actionFilter: '操作筛选', timeRange: '时间范围', eventCount: '事件' });
+Object.assign(I18N.ar, { lastHour: 'آخر ساعة', last6Hours: 'آخر 6 ساعات', last24Hours: 'آخر 24 ساعة', last7Days: 'آخر 7 أيام', actionFilter: 'تصفية الإجراءات', timeRange: 'النطاق الزمني', eventCount: 'أحداث' });
+Object.assign(I18N.ja, { lastHour: '過去 1 時間', last6Hours: '過去 6 時間', last24Hours: '過去 24 時間', last7Days: '過去 7 日間', actionFilter: 'アクションフィルター', timeRange: '期間', eventCount: 'イベント' });
 Object.assign(I18N.en, { chartTotal:'Total', chartEvents:'events', chartAria:'Hourly security events chart' });
 Object.assign(I18N.id, { chartTotal:'Total', chartEvents:'event', chartAria:'Grafik event keamanan per jam' });
 Object.assign(I18N.zh, { chartTotal:'总计', chartEvents:'事件', chartAria:'每小时安全事件图表' });
@@ -1510,22 +1515,22 @@ async function renderEvents() {
           ${icon('search', 'sm')}
           <input id="evtSearch" type="search" placeholder="${t('searchEvents')}" value="${esc(filters.q)}" />
         </div>
-        <select id="evtAction" style="width:auto;min-width:140px" aria-label="Filter aksi">
+        <select id="evtAction" style="width:auto;min-width:140px" aria-label="${t('actionFilter')}">
           <option value="" ${filters.action === '' ? 'selected' : ''}>${t('allActions')}</option>
-          <option value="blocked" ${filters.action === 'blocked' ? 'selected' : ''}>Diblokir</option>
-          <option value="detected" ${filters.action === 'detected' ? 'selected' : ''}>Terdeteksi</option>
-          <option value="allowed" ${filters.action === 'allowed' ? 'selected' : ''}>Lolos</option>
+          <option value="blocked" ${filters.action === 'blocked' ? 'selected' : ''}>${t('blocked')}</option>
+          <option value="detected" ${filters.action === 'detected' ? 'selected' : ''}>${t('detected')}</option>
+          <option value="allowed" ${filters.action === 'allowed' ? 'selected' : ''}>${t('allowed')}</option>
         </select>
-        <select id="evtRange" style="width:auto;min-width:140px" aria-label="Rentang waktu">
-          <option value="1h" ${filters.range === '1h' ? 'selected' : ''}>1 jam terakhir</option>
-          <option value="6h" ${filters.range === '6h' ? 'selected' : ''}>6 jam terakhir</option>
-          <option value="24h" ${filters.range === '24h' ? 'selected' : ''}>24 jam terakhir</option>
-          <option value="7d" ${filters.range === '7d' ? 'selected' : ''}>7 hari terakhir</option>
+        <select id="evtRange" style="width:auto;min-width:140px" aria-label="${t('timeRange')}">
+          <option value="1h" ${filters.range === '1h' ? 'selected' : ''}>${t('lastHour')}</option>
+          <option value="6h" ${filters.range === '6h' ? 'selected' : ''}>${t('last6Hours')}</option>
+          <option value="24h" ${filters.range === '24h' ? 'selected' : ''}>${t('last24Hours')}</option>
+          <option value="7d" ${filters.range === '7d' ? 'selected' : ''}>${t('last7Days')}</option>
           <option value="all" ${filters.range === 'all' ? 'selected' : ''}>${t('allRanges')}</option>
         </select>
         <button class="btn sm" id="evtApply">${icon('filter', 'sm')} ${t('apply')}</button>
         <span class="spacer"></span>
-        <span class="muted small">${fmtNum(total)} event</span>
+        <span class="muted small">${fmtNum(total)} ${t('eventCount')}</span>
       </div>
       <div class="table-wrap">
         <table class="data">
